@@ -1,20 +1,30 @@
 https://www.raspberrypi.org/documentation/linux/kernel/building.md
 https://www.raspberrypi.org/documentation/linux/kernel/configuring.md
 
+# updated for cross compiling using WSL on Windows 10
+
 sudo apt-get -y update
-sudo apt-get -y install git bc libncurses5-dev
-git clone --depth=1 https://github.com/raspberrypi/linux --branch rpi-4.14.y
+sudo apt install git bc bison flex libssl-dev make libc6-dev libncurses5-dev
+git clone https://github.com/raspberrypi/tools ~/tools
+echo PATH=\$PATH:~/tools/arm-bcm2708/arm-linux-gnueabihf/bin >> ~/.bashrc
+source ~/.bashrc
+
+# using latest kernel - might work, might not
+
+git clone --depth=1 https://github.com/raspberrypi/linux --branch rpi-5.4.y
 
 cd linux
 KERNEL=kernel7
-make bcm2709_defconfig
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2709_defconfig
 
 # <enable rl8723bs>
 # make menuconfig
 # Device Drivers -> Staging drivers -> Realtek RTL8723BS SDIO..
 sed -i 's/# CONFIG_RTL8723BS is not set/CONFIG_RTL8723BS=m/' .config
 
-make -j4 zImage modules dtbs
+# using 6 cores to compile as I have them available
+
+make -j6 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- zImage modules dtbs
 
 mkdir ../modules
 sudo make INSTALL_MOD_PATH=../modules/ modules_install
@@ -36,6 +46,8 @@ sudo mkdir -p /mnt/ext4
 wget <base_image>
 gunzip <base_image>.img.gz
 FILE=<base_image>.img
+
+# gets stuck here because using WSL1 and not WSL2 - will revisit later
 
 sudo mount -o loop,offset=4194304 $FILE /mnt/fat32
 sudo mount -o loop,offset=63963136 $FILE /mnt/ext4

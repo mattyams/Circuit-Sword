@@ -46,7 +46,7 @@ else
 fi
 
 GITHUBPROJECT="Circuit-Sword"
-GITHUBURL="https://github.com/kiteretro/$GITHUBPROJECT"
+GITHUBURL="https://github.com/mattyamsteretro/$GITHUBPROJECT"
 PIHOMEDIR="$DEST/home/pi"
 BINDIR="$PIHOMEDIR/$GITHUBPROJECT"
 USER="pi"
@@ -106,6 +106,15 @@ fi
 execute "chown -R $USER:$USER $BINDIR"
 
 #####################################################################
+# Install and Configure Bluetooth Audio Support for Pulse Audio
+
+sudo apt-get install -y pulseaudio-module-bluetooth
+sudo adduser pi bluetooth
+if ! grep "load-module module-switch-on-connect" /etc/pulse/default.pa; then
+  echo "load-module module-switch-on-connect" >> /etc/pulse/default.pa
+fi
+
+#####################################################################
 # Copy required to /boot
 
 # Config.txt bits
@@ -141,6 +150,9 @@ execute "chown $USER:$USER $DEST/opt/retropie/configs/all/autostart.sh"
 # Copy ES safe shutdown script
 execute "cp $BINDIR/settings/cs_shutdown.sh $DEST/opt/cs_shutdown.sh"
 
+#####################################################################
+# Fixes for various modules
+
 # Fix splashsreen sound
 if exists "$DEST/etc/init.d/asplashscreen" ; then
   execute "sed -i \"s/ *both/ alsa/\" $DEST/etc/init.d/asplashscreen"
@@ -170,14 +182,8 @@ pacmd set-card-profile $index off
 pacmd set-card-profile $index a2dp_sink
 EOF
 
-# Install the pixel theme and set it as default
-if ! exists "$DEST/etc/emulationstation/themes/pixel/system/theme.xml" ; then
-  execute "mkdir -p $DEST/etc/emulationstation/themes"
-  execute "rm -rf $DEST/etc/emulationstation/themes/pixel"
-  execute "git clone --recursive --depth 1 --branch master https://github.com/krextra/es-theme-pixel.git $DEST/etc/emulationstation/themes/pixel"
-  execute "cp -p $BINDIR/settings/es_settings.cfg $DEST/opt/retropie/configs/all/emulationstation/es_settings.cfg"
-  execute "sed -i \"s/carbon/pixel/\" $DEST/opt/retropie/configs/all/emulationstation/es_settings.cfg"
-fi
+#####################################################################
+# Installs
 
 # Install runcommand splash
 #if ! exists "$DEST/opt/retropie/configs/desktop/launching.png" ; then
@@ -233,16 +239,21 @@ if [[ $(grep '/ramdisk' $DEST/etc/fstab) == "" ]] ; then
   execute "echo 'tmpfs    /ramdisk    tmpfs    defaults,noatime,nosuid,size=100k    0 0' >> $DEST/etc/fstab"
 fi
 
-# Remove the old service
+#####################################################################
+# Services and junk
+
+# Remove the old services
 execute "rm -f $DEST/etc/systemd/system/cs-osd.service"
 execute "rm -f $DEST/etc/systemd/system/multi-user.target.wants/cs-osd.service"
 execute "rm -f $DEST/lib/systemd/system/cs-osd.service"
+execute "rm -f $DEST/etc/systemd/system/rtl-bluetooth.service"
+execute "rm -f $DEST/etc/systemd/system/multi-user.target.wants/rtl-bluetooth.service"
+execute "rm -f $DEST/lib/systemd/system/rtl-bluetooth.service"
 
 # Prepare for service install
 execute "rm -f $DEST/etc/systemd/system/cs-hud.service"
 execute "rm -f $DEST/etc/systemd/system/multi-user.target.wants/cs-hud.service"
 execute "rm -f $DEST/lib/systemd/system/cs-hud.service"
-
 execute "rm -f $DEST/lib/systemd/system/dpi-cloner.service"
 
 # Install HUD service
@@ -271,3 +282,17 @@ fi
 #####################################################################
 # DONE
 echo "DONE!"
+
+cat << EOF
+BT Audio Support is ready to use. To set up:
+
+Connect to the speaker through the GUI
+Menu -> BLUETOOTH -> Register and Connect to Bluetooth Device
+Select DisplayYesNo as agent
+
+Have Pi automatically connect to the speaker
+Menu -> BLUETOOTH -> Configure bluetooth connect mode
+Set connect mode to "background"
+
+Do a reboot
+EOF 
